@@ -1,8 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
-import { extractTextFromImage, extractClaims, analyzeWithSources } from './claude.js';
-import { searchMultipleQueries } from './search.js';
+import { extractTextFromImage, extractClaims, searchAndAnalyze } from './claude.js';
 import { validateEnv } from '../config/env.js';
-import type { AnalysisRequest, AnalysisResponse, Claim, Source } from '../../../shared/types.js';
+import type { AnalysisRequest, AnalysisResponse, Claim } from '../../../shared/types.js';
 
 export async function runAnalysis(request: AnalysisRequest): Promise<AnalysisResponse> {
   const config = validateEnv();
@@ -42,21 +41,9 @@ export async function runAnalysis(request: AnalysisRequest): Promise<AnalysisRes
 
   console.log(`[Pipeline] ${extractedClaims.length} afirmaciones encontradas`);
 
-  // Step 3: Search for sources
-  console.log('[Pipeline] Buscando fuentes en la web...');
-  const allQueries = extractedClaims.flatMap((c) => c.searchQueries).slice(0, 20);
-  let sources: Source[] = [];
-
-  try {
-    sources = await searchMultipleQueries(allQueries);
-    console.log(`[Pipeline] ${sources.length} fuentes encontradas`);
-  } catch (error) {
-    console.warn('[Pipeline] Error en búsqueda web, continuando sin fuentes:', error);
-  }
-
-  // Step 4: Analyze veracity
-  console.log('[Pipeline] Analizando veracidad...');
-  const analysis = await analyzeWithSources(extractedClaims, sources, combinedText);
+  // Step 3+4: Search web and analyze veracity (combined using Claude web_search tool)
+  console.log('[Pipeline] Buscando fuentes y analizando veracidad...');
+  const { analysis, sources } = await searchAndAnalyze(extractedClaims, combinedText);
 
   // Step 5: Assemble response
   const claimMap = new Map(extractedClaims.map((c, i) => [i + 1, c]));
