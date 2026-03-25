@@ -6,3 +6,6 @@ dist/
 uploads/
 coverage/
 .vite/
+
+# Claude Code
+.claude/
